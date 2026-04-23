@@ -1,0 +1,233 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+
+data1 <- read_csv("~/Mass_Arrests (1).csv")
+
+names(data1) <- trimws(names(data1))
+
+data1$Race <- as.factor(data1$Race)
+data1$Sex  <- as.factor(data1$Sex)
+
+data_clean <- data1 %>%
+  filter(!is.na(Race), !is.na(Sex))
+```
+
+```{r}
+RaceSex_table <- table(data_clean$Race, data_clean$Sex)
+
+RaceSex_table
+
+RaceSex_pct <- prop.table(RaceSex_table, margin = 2) %>%
+  round(., 3)
+
+RaceSex_pct
+
+```
+
+```{r}
+RaceSex_df <- as.data.frame(RaceSex_table)
+names(RaceSex_df) <- c("Race", "Sex", "counts")
+RaceSex_df$pctCol <- 100 * as.data.frame(RaceSex_pct)[,3]
+```
+
+```{r}
+ggplot(RaceSex_df,
+       aes(x = Sex, y = pctCol, fill = Race)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Distribution of Arrests by Race within Sex",
+    x = "Sex",
+    y = "Percentage (%)",
+    fill = "Race"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+covid <- read_csv("~/covid-19.csv")
+
+covid$date <- as.Date(covid$date, format = "%m/%d/%Y")
+
+covid <- covid %>%
+  filter(!is.na(daily_cases_mean),
+         !is.na(daily_deaths_mean),
+         !is.na(Entity))
+
+
+```
+
+```{r}
+covid_monthly <- covid %>%
+  mutate(yearMonth = format(date, "%Y-%m-01")) %>%
+  group_by(yearMonth) %>%
+  summarise(
+    cases = sum(daily_cases_mean, na.rm = TRUE),
+    deaths = sum(daily_deaths_mean, na.rm = TRUE)
+  )
+
+covid_monthly$yearMonth <- as.Date(covid_monthly$yearMonth)
+```
+
+```{r}
+
+ggplot(covid_monthly, aes(x = yearMonth, y = cases)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Monthly COVID-19 Cases Over Time",
+    x = "Date",
+    y = "Cases"
+  ) +
+  theme_light()
+```
+
+```{r}
+library(reshape2)
+
+covid_long <- melt(covid_monthly,
+                   id.vars = "yearMonth",
+                   variable.name = "type",
+                   value.name = "value")
+```
+
+```{r}
+ggplot(covid_long, aes(x = yearMonth, y = value, color = type)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "COVID-19 Cases and Deaths Over Time",
+    x = "Date",
+    y = "Count",
+    color = "Variable"
+  ) +
+  theme_light()
+```
+
+```{r}
+
+ggplot(covid_monthly, aes(x = cases, y = deaths)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Relationship Between COVID-19 Cases and Deaths",
+    x = "Cases",
+    y = "Deaths"
+  ) +
+  theme_light()
+```
+
+```{r}
+
+
+library(ggplot2)
+library(dplyr)
+
+data2 <- read.csv("Mass_Arrests (1).csv")
+
+names(data2) <- make.names(names(data2))
+
+str(data2)
+
+
+data2_clean <- data2 %>%
+  filter(!is.na(Arrest.Type),
+         !is.na(Age))
+
+data2_clean$Arrest.Type <- as.factor(data2_clean$Arrest.Type)
+
+
+tapply(data2_clean$Age,
+       data2_clean$Arrest.Type,
+       summary)
+
+
+ggplot(data2_clean, aes(x = Arrest.Type, y = Age)) +
+  geom_jitter(alpha = 0.2, color = "blue") +
+  geom_boxplot(alpha = 0.5) +
+  theme_light() +
+  labs(title = "Age Distribution by Arrest Type",
+       x = "Arrest Type",
+       y = "Age")
+
+
+ggplot(data2_clean, aes(x = Arrest.Type, y = Age)) +
+  geom_violin(fill = "orange", trim = FALSE) +
+  geom_boxplot(width = 0.1) +
+  theme_light() +
+  labs(title = "Distribution of Age by Arrest Type",
+       x = "Arrest Type",
+       y = "Age")
+
+
+summary_data <- data2_clean %>%
+  group_by(Arrest.Type) %>%
+  summarise(
+    median_age = median(Age),
+    max_age = max(Age)
+  )
+
+print(summary_data)
+
+```
+
+```{r}
+ggplot(data2_clean, aes(x = Arrest.Type, y = Age)) +
+  geom_violin(fill = "orange", trim = FALSE) +
+  geom_boxplot(width = 0.1) +
+  theme_light() +
+  labs(title = "Distribution of Age by Arrest Type",
+       x = "Arrest Type",
+       y = "Age")
+
+```
+
+```{r}
+summary_data <- data2_clean %>%
+  group_by(Arrest.Type) %>%
+  summarise(
+    median_age = median(Age),
+    max_age = max(Age)
+  )
+
+print(summary_data)
+```
+
+```{r}
+library(tidyr)
+
+summary_long <- summary_data %>%
+  pivot_longer(cols = c(median_age, max_age),
+               names_to = "stat",
+               values_to = "value")
+```
+
+```{r}
+ggplot(summary_long,
+       aes(x = Arrest.Type, y = value, color = stat)) +
+  geom_point(size = 4) +
+  theme_light() +
+  labs(title = "Median vs Max Age by Arrest Type",
+       x = "Arrest Type",
+       y = "Age",
+       color = "Statistic")
+```
