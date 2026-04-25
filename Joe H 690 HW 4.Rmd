@@ -1,0 +1,178 @@
+---
+title: "HW 4 – Visualization Dashboard"
+output:
+  html_document:
+    df_print: paged
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(tidyr)
+library(janitor)
+library(scales)
+
+```
+
+
+
+```{r}
+data1 <- read_csv("Mass_Arrests (1).csv") 
+names(data1) <- trimws(names(data1))
+data1$Race <- as.factor(data1$Race) 
+data1$Sex <- as.factor(data1$Sex) 
+data_clean <- data1 %>% 
+  filter(!is.na(Race), !is.na(Sex)) 
+data_clean$Sex <- recode(data_clean$Sex, "F" = "Female", "M" = "Male", "U" = "Unknown") 
+data_clean$Race <- recode(data_clean$Race, "B" = "Black", "H" = "Hispanic", "W" = "White", "I" = "Indigenous", "J" = "Asian", "O" = "Other", "U" = "Unknown")
+```
+
+
+```{r}
+covid <- read_csv("covid-19.csv")
+
+covid$date <- as.Date(covid$date, format = "%m/%d/%Y")
+
+covid <- covid %>%
+  filter(!is.na(daily_cases_mean),
+         !is.na(daily_deaths_mean))
+
+covid_monthly <- covid %>%
+  mutate(yearMonth = format(date, "%Y-%m-01")) %>%
+  group_by(yearMonth) %>%
+  summarise(
+    cases = sum(daily_cases_mean),
+    deaths = sum(daily_deaths_mean)
+  )
+
+covid_monthly$yearMonth <- as.Date(covid_monthly$yearMonth)
+```
+
+CAT-CAT RACE VS GENDER
+```{r}
+RaceSex_table <- table(data_clean$Race, data_clean$Sex) 
+RaceSex_df <- as.data.frame(RaceSex_table) 
+colnames(RaceSex_df) <- c("Race", "Sex", "count")
+
+RaceSex_df <- RaceSex_df %>% 
+group_by(Sex) %>% 
+mutate(pct = count / sum(count)) 
+
+RaceSex_df <- RaceSex_df %>%
+  filter(Sex %in% c("Male", "Female"),
+         Race != "Other")
+
+ggplot(RaceSex_df,
+       aes(x = Sex, y = pct, fill = Race)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Distribution of Arrests by Race and Gender",
+    x = "Gender",
+    y = "Percent of Arrests",
+    fill = "Race"
+  ) +
+  theme_minimal()
+
+```
+NUM-NUM COVID CASES & DEATHS
+```{r}
+ggplot(covid_monthly, aes(x = cases, y = deaths)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  scale_x_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Relationship Between COVID-19 Cases and Deaths",
+    x = "Total Cases",
+    y = "Total Deaths"
+  ) +
+  theme_light()
+```
+NUM-CAT AGE & ARRESTS
+```{r}
+data2 <- read.csv("Mass_Arrests (1).csv")
+names(data2) <- make.names(names(data2))
+
+data2_clean <- data2 %>%
+  filter(!is.na(Arrest.Type),
+         Arrest.Type != "",
+         !is.na(Age))
+
+data2_clean$Arrest.Type <- recode(data2_clean$Arrest.Type,
+  "F" = "Felony",
+  "M" = "Misdemeanor",
+  "O" = "Other",
+  "W" = "Warrant"
+)
+
+ggplot(data2_clean, aes(x = Arrest.Type, y = Age)) +
+  geom_violin(fill = "red", trim = FALSE) +
+  geom_boxplot(width = 0.1) +
+  theme_light() +
+  labs(
+    title = "Age Distribution by Arrest Type",
+    x = "Arrest Type",
+    y = "Age"
+  )
+```
+
+
+REWORKED GRAPHS
+
+```{r}
+safecities1 <- read_csv("safeCities.csv") %>%
+  clean_names()
+safe_clean <- safecities1 %>%
+  select(
+    city,
+    overall_score,
+    p_out_prevalence_of_crime,
+    p_out_level_of_corruption,
+    h_in_mental_health   # 👈 replaced here
+  ) %>%
+  drop_na()
+```
+
+```{r}
+graph1 <- ggplot(safe_clean, aes(
+  x = p_out_prevalence_of_crime,
+  y = overall_score,
+  color = p_out_level_of_corruption
+)) +
+  geom_point(size = 3) +
+  labs(
+    title = "Original: Crime vs Safety (Colored by Corruption)",
+    x = "Crime Level",
+    y = "Overall Safety Score",
+    color = "Corruption"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+g_improved <- ggplot(safe_clean, aes(
+  x = p_out_prevalence_of_crime,
+  y = overall_score
+)) +
+  geom_point(color = "darkblue", alpha = 0.6, size = 3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Improved: Crime vs Safety",
+    x = "Crime Level",
+    y = "Overall Safety Score"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+graph1
+g_improved
+```
+
